@@ -3,7 +3,14 @@
 
 import argparse
 from pathlib import Path
+import sys
+
 import cv2
+
+# When run as `python scripts/analyze_image.py`, Python adds `scripts/` rather
+# than the repository root to sys.path. Add the project root so the local
+# `parkwatch` package can be imported without requiring `pip install -e .`.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from parkwatch.config import VisionConfig
 from parkwatch.vision.annotate import draw_analysis
@@ -26,7 +33,7 @@ def main() -> int:
     detector = YoloVehicleDetector(config.model, config.vehicle_classes)
     detections = detector.detect(image, confidence=0.0)
     result = classify_occupancy(detections, config.parking_roi, config.min_vehicle_confidence, config.min_roi_overlap, config.ambiguous_overlap)
-    annotated = draw_analysis(image, config.parking_roi, result)
+    annotated = draw_analysis(image, config.parking_roi, result, config.min_vehicle_confidence)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     if not cv2.imwrite(str(args.output), annotated):
         raise SystemExit(f"Could not write output: {args.output}")
@@ -42,4 +49,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

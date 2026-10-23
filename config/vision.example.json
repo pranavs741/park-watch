@@ -1,9 +1,8 @@
 {
   "model": "yolo11n.pt",
-  "parking_roi": [[320, 410], [790, 390], [900, 650], [260, 670]],
+  "parking_roi": [[560, 880], [910, 880], [910, 1000], [550, 973]],
   "min_vehicle_confidence": 0.60,
   "min_roi_overlap": 0.50,
   "ambiguous_overlap": 0.05,
   "vehicle_classes": ["car", "truck", "bus", "motorcycle"]
 }
-
