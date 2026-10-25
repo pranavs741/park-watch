@@ -4,7 +4,8 @@ import json
 
 import pytest
 
-from parkwatch.ring import RingEvent, RingWebhookProcessor, verify_webhook_signature
+import parkwatch.ring
+from parkwatch.ring import RingEvent, RingOAuthClient, RingWebhookProcessor, verify_webhook_signature
 
 
 def signed(body: bytes, key: str) -> str:
@@ -30,3 +31,26 @@ def test_json_api_payload_is_supported():
     payload = {"data": {"attributes": {"request_id": "r", "event_type": "motion_detected", "device_id": "d", "component_ids": [2]}}}
     event = RingEvent.from_payload(payload)
     assert event == RingEvent("r", "motion_detected", "d", ("2",), payload)
+
+
+def test_oauth_request_uses_park_watch_user_agent(monkeypatch):
+    captured = {}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return json.dumps({"access_token": "access", "refresh_token": "refresh"}).encode()
+
+    def fake_urlopen(request, timeout):
+        captured["request"] = request
+        return Response()
+
+    monkeypatch.setattr(parkwatch.ring, "urlopen", fake_urlopen)
+    RingOAuthClient("client", "secret").exchange_authorization_code("code")
+
+    assert captured["request"].get_header("User-agent") == "ParkWatch/0.1"

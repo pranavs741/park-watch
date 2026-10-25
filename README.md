@@ -34,12 +34,37 @@ The initial safety-oriented behavior is conservative: low-confidence detections 
 After obtaining Ring Partner API credentials and an access token through the OAuth account-linking flow, set the webhook HMAC key and token:
 
 ```bash
+export RING_CLIENT_ID='...'
+export RING_CLIENT_SECRET='...'
 export RING_HMAC_KEY='...'
+# Optional at startup; Ring can provide it through /oauth/token.
 export RING_ACCESS_TOKEN='...'
 python scripts/ring_webhook.py --config config/vision.json
 ```
 
-The receiver listens on `POST /webhooks/ring`, verifies `X-Signature: sha256=...`, ignores duplicate `request_id` deliveries, downloads the snapshot from Ring, and writes the annotated result to `outputs/ring/`. Ring requires a publicly reachable HTTPS webhook endpoint in a deployed environment; the local server is intended for development behind a tunnel or reverse proxy.
+The receiver exposes `/health` for a local check, `/oauth/token` to receive Ring's short-lived authorization code and exchange it for tokens using your Client ID and Client Secret, `/ring/link` for single-user Ring account linking, `/ring/home` for connection status, and `/webhooks/ring` to process signed event notifications. Tokens are saved to `outputs/ring/tokens.json` with restrictive local permissions and refreshed automatically when they are near expiry. This prototype automatically links the first Ring account it receives; it has no multi-user login system. Ring requires publicly reachable HTTPS endpoints in a deployed environment; the local server is intended for development behind a tunnel or reverse proxy.
+
+## Polling Ring every minute
+
+Polling is an alternative to motion webhooks. First load the environment file and list the devices available to the access token:
+
+```bash
+set -a
+source app-credentials.env
+set +a
+python scripts/poll_ring.py --list-devices
+```
+
+Then start a one-minute polling loop using the device ID returned by Ring:
+
+```bash
+python scripts/poll_ring.py \
+  --config config/vision.json \
+  --device-id YOUR_RING_DEVICE_ID \
+  --interval 60
+```
+
+Each poll downloads one snapshot, runs the existing detector, and saves an annotated image under `outputs/ring/`. The rate limit is a ceiling, not a target; one request per minute per camera is intentionally conservative. Press `Ctrl+C` to stop cleanly.
 
 ## Tests
 
