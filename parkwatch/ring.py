@@ -12,11 +12,21 @@ from base64 import urlsafe_b64encode
 from typing import Any
 from urllib.error import HTTPError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
 DEFAULT_RING_API_URL = "https://api.amazonvision.com"
 DEFAULT_RING_OAUTH_URL = "https://oauth.ring.com"
 DEFAULT_USER_AGENT = "ParkWatch/0.1"
+
+
+class _RingMediaRedirectHandler(HTTPRedirectHandler):
+    """Follow Ring media redirects without forwarding the API bearer token."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if redirected is not None:
+            redirected.remove_header("Authorization")
+        return redirected
 
 
 def _oauth_http_error(exc: HTTPError, operation: str) -> RuntimeError:
@@ -36,6 +46,21 @@ def _oauth_http_error(exc: HTTPError, operation: str) -> RuntimeError:
         # response content because this error is also returned by the local HTTP server.
         pass
     return RuntimeError(f"Ring {operation} failed with HTTP {exc.code}{detail}")
+
+
+def _api_http_error(exc: HTTPError, operation: str) -> RuntimeError:
+    """Extract Ring's documented JSON error fields without reflecting secrets."""
+    details: list[str] = []
+    try:
+        payload = json.loads(exc.read().decode("utf-8"))
+        errors = payload.get("errors", []) if isinstance(payload, dict) else []
+        if isinstance(errors, list) and errors and isinstance(errors[0], dict):
+            error = errors[0]
+            details = [str(error[key]) for key in ("code", "title", "detail") if error.get(key)]
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        pass
+    suffix = f": {' - '.join(details)}" if details else ""
+    return RuntimeError(f"Ring {operation} failed with HTTP {exc.code}{suffix}")
 
 
 @dataclass(frozen=True)
@@ -224,7 +249,7 @@ class RingApiClient:
             with urlopen(request, timeout=30) as response:
                 return json.loads(response.read())
         except HTTPError as exc:
-            raise RuntimeError(f"Ring API request failed with HTTP {exc.code}") from exc
+            raise _api_http_error(exc, "API request") from exc
 
     def list_devices(self) -> dict[str, Any]:
         """Return devices the current Ring access token can access."""
@@ -240,9 +265,18 @@ class RingApiClient:
     def download_snapshot(self, device_id: str, output: str | Path, component_id: str | None = None) -> Path:
         if not self.access_token:
             raise RuntimeError("Ring access token is not available; complete OAuth account linking first")
+        end_timestamp = int(time.time() * 1000)
+        payload: dict[str, Any] = {
+            "type": "latest_in_range",
+            "start_timestamp": end_timestamp - 86_400_000,
+            "end_timestamp": end_timestamp,
+            "image_options": {"format": "jpeg"},
+        }
+        if component_id is not None:
+            payload["components"] = [{"component_id": component_id}]
         request = Request(
             f"{self.base_url}/v1/devices/{device_id}/media/image/download",
-            data=json.dumps({"components": [{"component_id": component_id or "1"}]}).encode("utf-8"),
+            data=json.dumps(payload).encode("utf-8"),
             method="POST",
             headers={
                 "Authorization": f"Bearer {self.access_token}",
@@ -254,8 +288,9 @@ class RingApiClient:
         destination = Path(output)
         destination.parent.mkdir(parents=True, exist_ok=True)
         try:
-            with urlopen(request, timeout=30) as response:
+            opener = build_opener(_RingMediaRedirectHandler())
+            with opener.open(request, timeout=30) as response:
                 destination.write_bytes(response.read())
         except HTTPError as exc:
-            raise RuntimeError(f"Ring snapshot download failed with HTTP {exc.code}") from exc
+            raise _api_http_error(exc, "snapshot download") from exc
         return destination

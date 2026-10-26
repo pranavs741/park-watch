@@ -5,7 +5,7 @@ import json
 import pytest
 
 import parkwatch.ring
-from parkwatch.ring import RingEvent, RingOAuthClient, RingWebhookProcessor, verify_webhook_signature
+from parkwatch.ring import RingApiClient, RingEvent, RingOAuthClient, RingWebhookProcessor, verify_webhook_signature
 
 
 def signed(body: bytes, key: str) -> str:
@@ -54,3 +54,32 @@ def test_oauth_request_uses_park_watch_user_agent(monkeypatch):
     RingOAuthClient("client", "secret").exchange_authorization_code("code")
 
     assert captured["request"].get_header("User-agent") == "ParkWatch/0.1"
+
+
+def test_single_camera_snapshot_omits_components(monkeypatch, tmp_path):
+    captured = {}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return b"image"
+
+    class Opener:
+        def open(self, request, timeout):
+            captured["request"] = request
+            return Response()
+
+    monkeypatch.setattr(parkwatch.ring, "build_opener", lambda *handlers: Opener())
+    destination = tmp_path / "snapshot.jpg"
+    RingApiClient("token").download_snapshot("device", destination)
+
+    payload = json.loads(captured["request"].data)
+    assert payload["type"] == "latest_in_range"
+    assert payload["image_options"] == {"format": "jpeg"}
+    assert "components" not in payload
+    assert destination.read_bytes() == b"image"
