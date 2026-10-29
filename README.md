@@ -125,8 +125,28 @@ python scripts/poll_ring.py \
 
 Each poll downloads one snapshot, runs the existing detector, and saves an annotated image under `outputs/ring/`. Filenames contain the configured parking spot names and the UTC poll timestamp, for example `right-curb-partial-view__2026-10-27T17-04-05.123456Z.jpg`. If one camera has several spots, all of their names are joined with `--` because they share one annotated camera image. The rate limit is a ceiling, not a target; one request per minute per camera is intentionally conservative. Press `Ctrl+C` to stop cleanly.
 
+## Discord notifications
+
+Create a Discord incoming webhook in the channel where you want alerts, then set
+the webhook URL in the environment. An incoming webhook is sufficient for
+personal alerts; a Discord bot is not required.
+
+```bash
+export DISCORD_WEBHOOK_URL='https://discord.com/api/webhooks/...'
+python scripts/poll_ring.py \
+  --config config/vision.json \
+  --device-id YOUR_RING_DEVICE_ID \
+  --interval 60
+```
+
+ParkWatch sends an alert only after a spot changes from `OCCUPIED` to `EMPTY`
+and remains empty for two consecutive readings. `UNKNOWN` never triggers an
+open-space alert. Alerts for the same spot have a 15-minute cooldown. These
+defaults can be changed with `--empty-confirmations` and
+`--notification-cooldown`.
+
 ## Tests
 
 ```bash
-pytest
+PYTHONPATH=. pytest
 ```
