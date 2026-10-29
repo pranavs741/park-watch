@@ -6,7 +6,14 @@ import numpy as np
 from .occupancy import OccupancyResult, ParkingStatus
 
 
-def draw_analysis(image, roi_points, result: OccupancyResult, min_confidence: float = 0.0):
+def draw_analysis(
+    image,
+    roi_points,
+    result: OccupancyResult,
+    min_confidence: float = 0.0,
+    spot_name: str = "Parking",
+    header_row: int = 0,
+):
     output = image.copy()
     polygon = np.array(roi_points, dtype=np.int32)
     color = {ParkingStatus.OCCUPIED: (0, 0, 255), ParkingStatus.EMPTY: (0, 180, 0), ParkingStatus.UNKNOWN: (0, 180, 255)}[result.status]
@@ -25,6 +32,24 @@ def draw_analysis(image, roi_points, result: OccupancyResult, min_confidence: fl
         label = f"{assessment.detection.class_name} {assessment.detection.confidence:.2f} overlap {assessment.overlap_ratio:.2f}"
         cv2.putText(output, label, (x1, max(20, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
         cv2.putText(output, label, (x1, max(20, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (20, 20, 20), 1)
-    cv2.rectangle(output, (10, 10), (350, 55), color, -1)
-    cv2.putText(output, f"Parking: {result.status.value}", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+    top = 10 + header_row * 50
+    label = f"{spot_name}: {result.status.value}"
+    width = max(350, 30 + len(label) * 18)
+    cv2.rectangle(output, (10, top), (width, top + 45), color, -1)
+    cv2.putText(output, label, (20, top + 32), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+    return output
+
+
+def draw_analyses(image, analyses):
+    """Draw several named parking-space results on the same camera image."""
+    output = image.copy()
+    for row, (spot, result) in enumerate(analyses):
+        output = draw_analysis(
+            output,
+            spot.roi,
+            result,
+            spot.min_vehicle_confidence,
+            spot.name,
+            row,
+        )
     return output

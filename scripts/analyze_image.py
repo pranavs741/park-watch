@@ -13,7 +13,7 @@ import cv2
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from parkwatch.config import VisionConfig
-from parkwatch.vision.annotate import draw_analysis
+from parkwatch.vision.annotate import draw_analyses
 from parkwatch.vision.detector import YoloVehicleDetector
 from parkwatch.vision.occupancy import classify_occupancy
 
@@ -23,6 +23,7 @@ def main() -> int:
     parser.add_argument("image", type=Path)
     parser.add_argument("--config", type=Path, default=Path("config/vision.json"))
     parser.add_argument("--output", type=Path, default=Path("outputs/annotated.jpg"))
+    parser.add_argument("--device-id", help="Select a camera from a multi-camera config")
     args = parser.parse_args()
 
     config = VisionConfig.from_file(args.config)
@@ -32,17 +33,33 @@ def main() -> int:
         raise SystemExit(f"Could not read image: {args.image}")
     detector = YoloVehicleDetector(config.model, config.vehicle_classes)
     detections = detector.detect(image, confidence=0.0)
-    result = classify_occupancy(detections, config.parking_roi, config.min_vehicle_confidence, config.min_roi_overlap, config.ambiguous_overlap)
-    annotated = draw_analysis(image, config.parking_roi, result, config.min_vehicle_confidence)
+    analyses = []
+    for spot in config.spots_for_device(args.device_id):
+        result = classify_occupancy(
+            detections,
+            spot.roi,
+            spot.min_vehicle_confidence,
+            spot.min_roi_overlap,
+            spot.ambiguous_overlap,
+            spot.overlap_basis,
+        )
+        analyses.append((spot, result))
+    annotated = draw_analyses(image, analyses)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     if not cv2.imwrite(str(args.output), annotated):
         raise SystemExit(f"Could not write output: {args.output}")
 
-    print(f"Parking: {result.status.value}")
-    for item in result.assessments:
-        print(f"Vehicle: {item.detection.class_name}")
-        print(f"YOLO confidence: {item.detection.confidence:.2f}")
-        print(f"ROI overlap: {item.overlap_ratio:.2f}")
+    for spot, result in analyses:
+        print(f"{spot.name}: {result.status.value}")
+        for item in result.assessments:
+            if (
+                item.detection.confidence < spot.min_vehicle_confidence
+                and item.overlap_ratio < spot.ambiguous_overlap
+            ):
+                continue
+            print(f"  Vehicle: {item.detection.class_name}")
+            print(f"  YOLO confidence: {item.detection.confidence:.2f}")
+            print(f"  ROI overlap ({spot.overlap_basis} basis): {item.overlap_ratio:.2f}")
     print(f"Annotated image: {args.output}")
     return 0
 

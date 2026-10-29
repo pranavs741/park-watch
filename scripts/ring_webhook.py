@@ -7,15 +7,15 @@ import os
 from pathlib import Path
 import sys
 from urllib.parse import parse_qs, urlsplit
-from uuid import uuid4
 
 import cv2
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from parkwatch.config import VisionConfig
+from parkwatch.output import timestamped_image_path
 from parkwatch.ring import RingApiClient, RingOAuthClient, RingTokenStore, RingWebhookProcessor, verify_account_link_nonce
-from parkwatch.vision.annotate import draw_analysis
+from parkwatch.vision.annotate import draw_analyses
 from parkwatch.vision.detector import YoloVehicleDetector
 from parkwatch.vision.occupancy import classify_occupancy
 
@@ -87,17 +87,29 @@ def make_handler(config: VisionConfig, processor: RingWebhookProcessor, oauth: R
             try:
                 event = processor.parse(body, self.headers.get("X-Signature", ""))
                 if event is not None and event.event_type in {"motion_detected", "motion.vehicle", "motion.human"}:
-                    image_path = output_dir / f"{event.request_id}-{uuid4().hex[:8]}.jpg"
+                    spots = config.spots_for_device(event.device_id)
+                    image_path = timestamped_image_path(output_dir, [spot.name for spot in spots])
                     client.download_snapshot(event.device_id, image_path, event.component_ids[0] if event.component_ids else None)
                     image = cv2.imread(str(image_path))
                     if image is None:
                         raise RuntimeError(f"Ring returned an unreadable image: {image_path}")
                     detections = detector.detect(image)
-                    result = classify_occupancy(detections, config.parking_roi, config.min_vehicle_confidence, config.min_roi_overlap, config.ambiguous_overlap)
-                    annotated = draw_analysis(image, config.parking_roi, result, config.min_vehicle_confidence)
+                    analyses = []
+                    for spot in spots:
+                        result = classify_occupancy(
+                            detections,
+                            spot.roi,
+                            spot.min_vehicle_confidence,
+                            spot.min_roi_overlap,
+                            spot.ambiguous_overlap,
+                            spot.overlap_basis,
+                        )
+                        analyses.append((spot, result))
+                    annotated = draw_analyses(image, analyses)
                     if not cv2.imwrite(str(image_path), annotated):
                         raise RuntimeError(f"Could not write annotated image: {image_path}")
-                    print(f"{event.request_id}: {result.status.value} ({image_path})", flush=True)
+                    statuses = ", ".join(f"{spot.name}={result.status.value}" for spot, result in analyses)
+                    print(f"{event.request_id}: {statuses} ({image_path})", flush=True)
                 self.send_response(200)
                 self.end_headers()
             except (PermissionError, ValueError) as exc:

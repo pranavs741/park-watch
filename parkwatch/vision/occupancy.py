@@ -37,11 +37,14 @@ def roi_polygon(points: list[list[float]]) -> Polygon:
     return polygon
 
 
-def overlap_ratio(detection: Detection, roi: Polygon) -> float:
+def overlap_ratio(detection: Detection, roi: Polygon, basis: str = "vehicle") -> float:
     vehicle = box(*detection.bbox)
-    if vehicle.area == 0:
+    denominator = vehicle.area if basis == "vehicle" else roi.area
+    if denominator == 0:
         return 0.0
-    return float(vehicle.intersection(roi).area / vehicle.area)
+    if basis not in {"vehicle", "roi"}:
+        raise ValueError("overlap basis must be 'vehicle' or 'roi'")
+    return float(vehicle.intersection(roi).area / denominator)
 
 
 def classify_occupancy(
@@ -50,10 +53,11 @@ def classify_occupancy(
     min_confidence: float = 0.60,
     min_roi_overlap: float = 0.50,
     ambiguous_overlap: float = 0.05,
+    overlap_basis: str = "vehicle",
 ) -> OccupancyResult:
     roi = roi_polygon(roi_points)
     assessments = [
-        DetectionAssessment(detection, overlap_ratio(detection, roi), False)
+        DetectionAssessment(detection, overlap_ratio(detection, roi, overlap_basis), False)
         for detection in detections
     ]
     assessments = [
@@ -64,7 +68,10 @@ def classify_occupancy(
         return OccupancyResult(ParkingStatus.OCCUPIED, assessments)
 
     relevant = [item for item in assessments if item.detection.confidence >= min_confidence]
-    low_confidence = [item for item in assessments if item.detection.confidence < min_confidence]
+    low_confidence = [
+        item for item in assessments
+        if item.detection.confidence < min_confidence and item.overlap_ratio >= ambiguous_overlap
+    ]
     partial = [item for item in relevant if ambiguous_overlap <= item.overlap_ratio < min_roi_overlap]
     if low_confidence or partial:
         return OccupancyResult(ParkingStatus.UNKNOWN, assessments)

@@ -33,6 +33,24 @@ def test_empty_detection_list_is_empty():
     assert classify_occupancy([], ROI).status is ParkingStatus.EMPTY
 
 
+def test_roi_basis_handles_a_small_visible_part_of_a_vehicle():
+    narrow_visible_roi = [[90, 20], [100, 20], [100, 80], [90, 80]]
+    detection = Detection("car", 0.90, (0, 0, 100, 100))
+
+    vehicle_basis = classify_occupancy([detection], narrow_visible_roi, min_roi_overlap=0.50)
+    roi_basis = classify_occupancy(
+        [detection], narrow_visible_roi, min_roi_overlap=0.50, overlap_basis="roi"
+    )
+
+    assert vehicle_basis.status is ParkingStatus.UNKNOWN
+    assert roi_basis.status is ParkingStatus.OCCUPIED
+
+
+def test_unrelated_low_confidence_detection_does_not_make_spot_unknown():
+    detection = Detection("car", 0.20, (120, 10, 180, 90))
+    assert classify_occupancy([detection], ROI).status is ParkingStatus.EMPTY
+
+
 def test_invalid_roi_is_rejected():
     with pytest.raises(ValueError):
         roi_polygon([[0, 0], [1, 1]])
