@@ -1,5 +1,7 @@
 {
   "model": "yolo11n.pt",
+  "inference_image_size": 1280,
+  "min_candidate_confidence": 0.10,
   "parking_roi": [[534, 793], [920, 833], [963, 938], [537, 919]],
   "min_vehicle_confidence": 0.60,
   "min_roi_overlap": 0.50,

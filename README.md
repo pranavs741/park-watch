@@ -25,6 +25,12 @@ The command prints `EMPTY`, `OCCUPIED`, or `UNKNOWN`, along with each detected v
 
 The initial safety-oriented behavior is conservative: low-confidence detections and partial overlaps produce `UNKNOWN`, avoiding a false “parking open” result. Tune thresholds against real watermarked Ring images and a labeled dataset before enabling notifications.
 
+`inference_image_size` controls how large an image YOLO analyzes internally. A
+larger value such as `1280` preserves more detail for distant vehicles, at the
+cost of additional processing time. `min_candidate_confidence` is the lower
+floor for detections retained as possible vehicles; candidates below that floor
+are treated as model noise and cannot force a parking spot to `UNKNOWN`.
+
 ## ROI and multi-camera configuration
 
 `parking_roi` is an ordered list of image pixel coordinates. Use a polygon rather than a rectangle and avoid the Ring watermark where possible. The polygon must be valid and non-empty. A future ROI setup utility can write this same format.

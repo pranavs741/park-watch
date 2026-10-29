@@ -31,8 +31,13 @@ def main() -> int:
     image = cv2.imread(str(args.image))
     if image is None:
         raise SystemExit(f"Could not read image: {args.image}")
-    detector = YoloVehicleDetector(config.model, config.vehicle_classes)
-    detections = detector.detect(image, confidence=0.0)
+    detector = YoloVehicleDetector(
+        config.model,
+        config.vehicle_classes,
+        config.inference_image_size,
+        config.min_candidate_confidence,
+    )
+    detections = detector.detect(image)
     analyses = []
     for spot in config.spots_for_device(args.device_id):
         result = classify_occupancy(

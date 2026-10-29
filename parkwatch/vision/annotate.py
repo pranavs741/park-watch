@@ -13,6 +13,7 @@ def draw_analysis(
     min_confidence: float = 0.0,
     spot_name: str = "Parking",
     header_row: int = 0,
+    min_overlap_to_draw: float = 0.0,
 ):
     output = image.copy()
     polygon = np.array(roi_points, dtype=np.int32)
@@ -24,7 +25,10 @@ def draw_analysis(
     for assessment in result.assessments:
         # The classifier may retain low-confidence detections to produce
         # UNKNOWN, but those candidates are too noisy to draw prominently.
-        if assessment.detection.confidence < min_confidence:
+        if (
+            assessment.detection.confidence < min_confidence
+            or assessment.overlap_ratio < min_overlap_to_draw
+        ):
             continue
         x1, y1, x2, y2 = map(int, assessment.detection.bbox)
         occupies = assessment.occupies_roi and assessment.detection.confidence >= min_confidence
@@ -51,5 +55,6 @@ def draw_analyses(image, analyses):
             spot.min_vehicle_confidence,
             spot.name,
             row,
+            spot.ambiguous_overlap,
         )
     return output

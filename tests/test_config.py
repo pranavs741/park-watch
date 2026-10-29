@@ -42,3 +42,18 @@ def test_camera_specific_spots_and_overrides(tmp_path):
     assert spot.min_vehicle_confidence == pytest.approx(0.35)
     with pytest.raises(ValueError, match="no parking spots configured"):
         config.spots_for_device("front-door")
+
+
+def test_detector_settings_are_loaded(tmp_path):
+    path = tmp_path / "vision.json"
+    path.write_text(json.dumps({
+        "parking_roi": [[0, 0], [10, 0], [10, 10]],
+        "inference_image_size": 1280,
+        "min_candidate_confidence": 0.15,
+    }))
+
+    config = VisionConfig.from_file(path)
+    config.validate()
+
+    assert config.inference_image_size == 1280
+    assert config.min_candidate_confidence == pytest.approx(0.15)

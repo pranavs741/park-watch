@@ -14,16 +14,30 @@ class Detection:
 class YoloVehicleDetector:
     """Thin adapter around Ultralytics, kept separate from occupancy logic."""
 
-    def __init__(self, model_name: str, vehicle_classes: tuple[str, ...]):
+    def __init__(
+        self,
+        model_name: str,
+        vehicle_classes: tuple[str, ...],
+        image_size: int = 640,
+        candidate_confidence: float = 0.10,
+    ):
         try:
             from ultralytics import YOLO
         except ImportError as exc:  # pragma: no cover - depends on optional runtime dependency
             raise RuntimeError("Install requirements.txt before running image analysis") from exc
         self.model = YOLO(model_name)
         self.vehicle_classes = set(vehicle_classes)
+        self.image_size = image_size
+        self.candidate_confidence = candidate_confidence
 
-    def detect(self, image: Any, confidence: float = 0.0) -> list[Detection]:
-        results = self.model.predict(source=image, conf=confidence, verbose=False)
+    def detect(self, image: Any, confidence: float | None = None) -> list[Detection]:
+        threshold = self.candidate_confidence if confidence is None else confidence
+        results = self.model.predict(
+            source=image,
+            conf=threshold,
+            imgsz=self.image_size,
+            verbose=False,
+        )
         detections: list[Detection] = []
         for result in results:
             names = result.names

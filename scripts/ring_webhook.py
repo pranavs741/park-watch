@@ -28,7 +28,12 @@ def required_env(name: str) -> str:
 
 
 def make_handler(config: VisionConfig, processor: RingWebhookProcessor, oauth: RingOAuthClient, client: RingApiClient, token_store: RingTokenStore, output_dir: Path):
-    detector = YoloVehicleDetector(config.model, config.vehicle_classes)
+    detector = YoloVehicleDetector(
+        config.model,
+        config.vehicle_classes,
+        config.inference_image_size,
+        config.min_candidate_confidence,
+    )
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802

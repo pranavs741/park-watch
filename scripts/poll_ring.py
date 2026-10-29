@@ -95,7 +95,12 @@ def main() -> int:
     config.validate()
     for device_id in args.device_id:
         config.spots_for_device(device_id)
-    detector = YoloVehicleDetector(config.model, config.vehicle_classes)
+    detector = YoloVehicleDetector(
+        config.model,
+        config.vehicle_classes,
+        config.inference_image_size,
+        config.min_candidate_confidence,
+    )
     print(f"Polling {len(args.device_id)} Ring device(s) every {args.interval:g} seconds", flush=True)
     try:
         while True:

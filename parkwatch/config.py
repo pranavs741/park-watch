@@ -23,6 +23,8 @@ class ParkingSpotConfig:
 class VisionConfig:
     parking_roi: list[list[float]] = field(default_factory=list)
     model: str = "yolo11n.pt"
+    inference_image_size: int = 640
+    min_candidate_confidence: float = 0.10
     min_vehicle_confidence: float = 0.60
     min_roi_overlap: float = 0.50
     ambiguous_overlap: float = 0.05
@@ -63,6 +65,8 @@ class VisionConfig:
         return cls(
             parking_roi=data.get("parking_roi", []),
             model=data.get("model", cls.model),
+            inference_image_size=int(data.get("inference_image_size", cls.inference_image_size)),
+            min_candidate_confidence=float(data.get("min_candidate_confidence", cls.min_candidate_confidence)),
             min_vehicle_confidence=defaults["min_vehicle_confidence"],
             min_roi_overlap=defaults["min_roi_overlap"],
             ambiguous_overlap=defaults["ambiguous_overlap"],
@@ -72,6 +76,10 @@ class VisionConfig:
         )
 
     def validate(self) -> None:
+        if self.inference_image_size <= 0:
+            raise ValueError("inference_image_size must be greater than zero")
+        if not 0 <= self.min_candidate_confidence <= 1:
+            raise ValueError("min_candidate_confidence must be between 0 and 1")
         if not 0 <= self.min_vehicle_confidence <= 1:
             raise ValueError("min_vehicle_confidence must be between 0 and 1")
         if not 0 <= self.min_roi_overlap <= 1:
