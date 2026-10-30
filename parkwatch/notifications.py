@@ -18,9 +18,10 @@ class DiscordWebhookNotifier:
         self.webhook_url = webhook_url
         self.timeout = timeout
 
-    def send_spot_opened(self, spot_name: str, device_id: str) -> None:
+    def send_spot_opened(self, spot_name: str, device_id: str, camera_name: str | None = None) -> None:
+        camera_label = camera_name or device_id
         payload = {
-            "content": f"🅿️ **{spot_name}** is open (camera `{device_id}`).",
+            "content": f"🅿️ **{spot_name}** is open (camera **{camera_label}**).",
             "allowed_mentions": {"parse": []},
         }
         request = Request(

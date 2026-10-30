@@ -1,6 +1,7 @@
 """Run the configured parking-space analysis for a Ring snapshot."""
 
 from pathlib import Path
+from dataclasses import replace
 
 import cv2
 
@@ -27,18 +28,26 @@ def analyze_snapshot(
     if image is None:
         raise RuntimeError(f"Ring returned an unreadable image: {image_path}")
 
+    image_height, image_width = image.shape[:2]
+    reference_width, reference_height = config.reference_image_size
+    scale_x = image_width / reference_width
+    scale_y = image_height / reference_height
     detections = detector.detect(image)
     analyses = []
     for spot in spots:
+        scaled_spot = replace(
+            spot,
+            roi=[[x * scale_x, y * scale_y] for x, y in spot.roi],
+        )
         result = classify_occupancy(
             detections,
-            spot.roi,
-            spot.min_vehicle_confidence,
-            spot.min_roi_overlap,
-            spot.ambiguous_overlap,
-            spot.overlap_basis,
+            scaled_spot.roi,
+            scaled_spot.min_vehicle_confidence,
+            scaled_spot.min_roi_overlap,
+            scaled_spot.ambiguous_overlap,
+            scaled_spot.overlap_basis,
         )
-        analyses.append((spot, result))
+        analyses.append((scaled_spot, result))
 
     annotated = draw_analyses(image, analyses)
     if not cv2.imwrite(str(image_path), annotated):

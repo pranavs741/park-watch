@@ -1,5 +1,6 @@
 {
   "model": "yolo11n.pt",
+  "reference_image_size": [1920, 1080],
   "inference_image_size": 1280,
   "min_candidate_confidence": 0.10,
   "parking_roi": [[534, 793], [920, 833], [963, 938], [537, 919]],

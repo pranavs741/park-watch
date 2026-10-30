@@ -145,6 +145,42 @@ open-space alert. Alerts for the same spot have a 15-minute cooldown. These
 defaults can be changed with `--empty-confirmations` and
 `--notification-cooldown`.
 
+Notifications use each camera's configured `name` instead of its long Ring
+device ID. By default, snapshots narrower than `1280` pixels are analyzed and
+saved but are excluded from notification state changes, preventing a low-
+resolution Ring thumbnail from causing a false alert. Change this with
+`--min-snapshot-width` or set it to `0` to disable the quality gate.
+
+## Run with Docker
+
+Docker is the recommended deployment format for a VM. The image contains the
+Python and YOLO dependencies, while credentials, Ring tokens, snapshots, and
+the local YOLO model remain outside the image.
+
+Add the device IDs to `app-credentials.env` as a space-separated value. Do not
+commit that file:
+
+```bash
+PARKWATCH_DEVICE_IDS="FRONT_DOOR_DEVICE_ID FRONT_GARAGE_DEVICE_ID"
+PARKWATCH_INTERVAL="60"
+```
+
+Build and start the poller:
+
+```bash
+docker compose build
+docker compose up -d
+docker compose logs -f parkwatch
+```
+
+The container restarts automatically if it exits or Docker restarts. Stop it
+with `docker compose down`. The Ring token, annotated snapshots, and downloaded
+YOLO model are stored in `outputs/`, so they survive container replacement.
+
+Never put credentials in the `Dockerfile` or image. Keep
+`app-credentials.env` readable only by your user (`chmod 600
+app-credentials.env`) and rotate credentials that have been exposed.
+
 ## Tests
 
 ```bash

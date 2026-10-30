@@ -23,6 +23,7 @@ class ParkingSpotConfig:
 class VisionConfig:
     parking_roi: list[list[float]] = field(default_factory=list)
     model: str = "yolo11n.pt"
+    reference_image_size: tuple[int, int] = (1920, 1080)
     inference_image_size: int = 640
     min_candidate_confidence: float = 0.10
     min_vehicle_confidence: float = 0.60
@@ -31,6 +32,7 @@ class VisionConfig:
     vehicle_classes: tuple[str, ...] = ("car", "truck", "bus", "motorcycle")
     parking_spots: tuple[ParkingSpotConfig, ...] = ()
     cameras: dict[str, tuple[ParkingSpotConfig, ...]] = field(default_factory=dict)
+    camera_names: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_file(cls, path: str | Path) -> "VisionConfig":
@@ -62,9 +64,14 @@ class VisionConfig:
             )
             for device_id, camera in data.get("cameras", {}).items()
         }
+        camera_names = {
+            str(device_id): str(camera.get("name", device_id))
+            for device_id, camera in data.get("cameras", {}).items()
+        }
         return cls(
             parking_roi=data.get("parking_roi", []),
             model=data.get("model", cls.model),
+            reference_image_size=tuple(data.get("reference_image_size", cls.reference_image_size)),
             inference_image_size=int(data.get("inference_image_size", cls.inference_image_size)),
             min_candidate_confidence=float(data.get("min_candidate_confidence", cls.min_candidate_confidence)),
             min_vehicle_confidence=defaults["min_vehicle_confidence"],
@@ -73,9 +80,12 @@ class VisionConfig:
             vehicle_classes=tuple(data.get("vehicle_classes", cls.vehicle_classes)),
             parking_spots=parking_spots,
             cameras=cameras,
+            camera_names=camera_names,
         )
 
     def validate(self) -> None:
+        if len(self.reference_image_size) != 2 or any(value <= 0 for value in self.reference_image_size):
+            raise ValueError("reference_image_size must contain two positive values")
         if self.inference_image_size <= 0:
             raise ValueError("inference_image_size must be greater than zero")
         if not 0 <= self.min_candidate_confidence <= 1:
@@ -105,6 +115,10 @@ class VisionConfig:
         if self.parking_spots:
             return self.parking_spots
         return (self._legacy_spot(),)
+
+    def camera_name(self, device_id: str) -> str:
+        """Return a human-friendly camera name for notifications."""
+        return self.camera_names.get(device_id, device_id)
 
     def _legacy_spot(self) -> ParkingSpotConfig:
         return ParkingSpotConfig(

@@ -34,13 +34,21 @@ def draw_analysis(
         occupies = assessment.occupies_roi and assessment.detection.confidence >= min_confidence
         cv2.rectangle(output, (x1, y1), (x2, y2), color if occupies else (255, 150, 0), 2)
         label = f"{assessment.detection.class_name} {assessment.detection.confidence:.2f} overlap {assessment.overlap_ratio:.2f}"
-        cv2.putText(output, label, (x1, max(20, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
-        cv2.putText(output, label, (x1, max(20, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (20, 20, 20), 1)
-    top = 10 + header_row * 50
+        detection_font = max(0.35, min(0.55, output.shape[1] / 1920 * 0.55))
+        detection_thickness = max(1, round(detection_font * 2))
+        cv2.putText(output, label, (x1, max(20, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, detection_font, (255, 255, 255), detection_thickness)
+        cv2.putText(output, label, (x1, max(20, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, detection_font, (20, 20, 20), 1)
+    label_font = max(0.45, min(0.8, output.shape[1] / 1920 * 0.8))
+    label_thickness = max(1, round(label_font * 2))
+    (text_width, text_height), baseline = cv2.getTextSize(
+        f"{spot_name}: {result.status.value}", cv2.FONT_HERSHEY_SIMPLEX, label_font, label_thickness
+    )
+    row_height = text_height + baseline + 14
+    top = 10 + header_row * row_height
     label = f"{spot_name}: {result.status.value}"
-    width = max(350, 30 + len(label) * 18)
-    cv2.rectangle(output, (10, top), (width, top + 45), color, -1)
-    cv2.putText(output, label, (20, top + 32), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+    width = min(output.shape[1] - 10, 20 + text_width)
+    cv2.rectangle(output, (10, top), (width, top + row_height), color, -1)
+    cv2.putText(output, label, (20, top + text_height + 5), cv2.FONT_HERSHEY_SIMPLEX, label_font, (255, 255, 255), label_thickness)
     return output
 
 

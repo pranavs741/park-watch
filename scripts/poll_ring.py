@@ -7,6 +7,8 @@ from pathlib import Path
 import sys
 import time
 
+import cv2
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from parkwatch.analysis import analyze_snapshot as run_analysis
@@ -33,6 +35,12 @@ def main() -> int:
     parser.add_argument("--config", type=Path, default=Path("config/vision.json"))
     parser.add_argument("--device-id", action="append", help="Ring device ID; repeat for multiple cameras")
     parser.add_argument("--interval", type=float, default=60.0, help="Seconds between polls (default: 60)")
+    parser.add_argument(
+        "--min-snapshot-width",
+        type=int,
+        default=1280,
+        help="Do not update notification state from snapshots narrower than this (default: 1280)",
+    )
     parser.add_argument("--output-dir", type=Path, default=Path("outputs/ring"))
     parser.add_argument("--token-file", type=Path, default=Path("outputs/ring/tokens.json"))
     parser.add_argument("--list-devices", action="store_true", help="List accessible Ring devices and exit")
@@ -62,6 +70,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.interval <= 0:
         parser.error("--interval must be greater than zero")
+    if args.min_snapshot_width < 0:
+        parser.error("--min-snapshot-width cannot be negative")
 
     token = os.getenv("RING_ACCESS_TOKEN")
     if not token and os.path.exists(args.token_file):
@@ -107,10 +117,19 @@ def main() -> int:
                     statuses = ", ".join(f"{spot.name}={result.status.value}" for spot, result in analyses)
                     print(f"{device_id}: {statuses} ({image_path})", flush=True)
                     if notifier:
+                        image = cv2.imread(str(image_path))
+                        image_width = image.shape[1] if image is not None else 0
+                        if image_width < args.min_snapshot_width:
+                            print(
+                                f"{device_id}: notification state skipped; snapshot width {image_width}px "
+                                f"is below {args.min_snapshot_width}px",
+                                flush=True,
+                            )
+                            continue
                         for spot, result in analyses:
                             key = f"{device_id}:{spot.name}"
                             if tracker.should_notify(key, result.status):
-                                notifier.send_spot_opened(spot.name, device_id)
+                                notifier.send_spot_opened(spot.name, device_id, config.camera_name(device_id))
                                 print(f"{device_id}: Discord notification sent for {spot.name}", flush=True)
                 except Exception as exc:
                     print(f"{device_id}: poll failed: {exc}", file=sys.stderr, flush=True)

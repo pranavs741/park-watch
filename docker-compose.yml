@@ -1,0 +1,11 @@
+services:
+  parkwatch:
+    build: .
+    container_name: parkwatch
+    env_file:
+      - app-credentials.env
+    restart: unless-stopped
+    volumes:
+      - ./config/vision.json:/app/config/vision.json:ro
+      - ./outputs/ring:/app/outputs/ring
+      - ./outputs/ultralytics:/root/.config/Ultralytics
