@@ -33,6 +33,7 @@ class VisionConfig:
     parking_spots: tuple[ParkingSpotConfig, ...] = ()
     cameras: dict[str, tuple[ParkingSpotConfig, ...]] = field(default_factory=dict)
     camera_names: dict[str, str] = field(default_factory=dict)
+    camera_reference_image_sizes: dict[str, tuple[int, int]] = field(default_factory=dict)
 
     @classmethod
     def from_file(cls, path: str | Path) -> "VisionConfig":
@@ -68,6 +69,10 @@ class VisionConfig:
             str(device_id): str(camera.get("name", device_id))
             for device_id, camera in data.get("cameras", {}).items()
         }
+        camera_reference_image_sizes = {
+            str(device_id): tuple(camera.get("reference_image_size", data.get("reference_image_size", cls.reference_image_size)))
+            for device_id, camera in data.get("cameras", {}).items()
+        }
         return cls(
             parking_roi=data.get("parking_roi", []),
             model=data.get("model", cls.model),
@@ -81,6 +86,7 @@ class VisionConfig:
             parking_spots=parking_spots,
             cameras=cameras,
             camera_names=camera_names,
+            camera_reference_image_sizes=camera_reference_image_sizes,
         )
 
     def validate(self) -> None:
@@ -119,6 +125,10 @@ class VisionConfig:
     def camera_name(self, device_id: str) -> str:
         """Return a human-friendly camera name for notifications."""
         return self.camera_names.get(device_id, device_id)
+
+    def reference_image_size_for_device(self, device_id: str) -> tuple[int, int]:
+        """Return the coordinate reference size for one camera."""
+        return self.camera_reference_image_sizes.get(device_id, self.reference_image_size)
 
     def _legacy_spot(self) -> ParkingSpotConfig:
         return ParkingSpotConfig(

@@ -29,7 +29,7 @@ def analyze_snapshot(
         raise RuntimeError(f"Ring returned an unreadable image: {image_path}")
 
     image_height, image_width = image.shape[:2]
-    reference_width, reference_height = config.reference_image_size
+    reference_width, reference_height = config.reference_image_size_for_device(device_id)
     scale_x = image_width / reference_width
     scale_y = image_height / reference_height
     detections = detector.detect(image)

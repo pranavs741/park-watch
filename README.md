@@ -33,7 +33,7 @@ are treated as model noise and cannot force a parking spot to `UNKNOWN`.
 
 ## ROI and multi-camera configuration
 
-`parking_roi` is an ordered list of image pixel coordinates. Use a polygon rather than a rectangle and avoid the Ring watermark where possible. The polygon must be valid and non-empty. A future ROI setup utility can write this same format.
+`parking_roi` is an ordered list of image pixel coordinates. Use a polygon rather than a rectangle and avoid the Ring watermark where possible. The polygon must be valid and non-empty. A future ROI setup utility can write this same format. If cameras return different shapes, set `reference_image_size` inside each camera entry; coordinates are measured in that camera's reference image.
 
 For several cameras or parking spaces, replace the single `parking_roi` with a
 `cameras` object. Each key is the complete Ring device ID, and each camera has
