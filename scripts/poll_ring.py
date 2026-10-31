@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from parkwatch.analysis import analyze_snapshot as run_analysis
 from parkwatch.config import VisionConfig
 from parkwatch.notifications import DiscordWebhookNotifier, SpotStateTracker
-from parkwatch.output import timestamped_image_path
+from parkwatch.output import remove_old_images, timestamped_image_path
 from parkwatch.ring import RingApiClient, RingOAuthClient, RingTokenStore
 from parkwatch.vision.detector import YoloVehicleDetector
 
@@ -42,6 +42,12 @@ def main() -> int:
         help="Do not update notification state from snapshots narrower than this (default: 1280)",
     )
     parser.add_argument("--output-dir", type=Path, default=Path("outputs/ring"))
+    parser.add_argument(
+        "--retention-days",
+        type=float,
+        default=float(os.getenv("PARKWATCH_RETENTION_DAYS", "0.0416667")),
+        help="Delete annotated JPG snapshots older than this many days (default: 1 hour)",
+    )
     parser.add_argument("--token-file", type=Path, default=Path("outputs/ring/tokens.json"))
     parser.add_argument("--list-devices", action="store_true", help="List accessible Ring devices and exit")
     parser.add_argument("--once", action="store_true", help="Poll each camera once, then exit")
@@ -72,6 +78,8 @@ def main() -> int:
         parser.error("--interval must be greater than zero")
     if args.min_snapshot_width < 0:
         parser.error("--min-snapshot-width cannot be negative")
+    if args.retention_days < 0:
+        parser.error("--retention-days cannot be negative")
 
     token = os.getenv("RING_ACCESS_TOKEN")
     if not token and os.path.exists(args.token_file):
@@ -133,6 +141,9 @@ def main() -> int:
                                 print(f"{device_id}: Discord notification sent for {spot.name}", flush=True)
                 except Exception as exc:
                     print(f"{device_id}: poll failed: {exc}", file=sys.stderr, flush=True)
+            removed = remove_old_images(args.output_dir, args.retention_days)
+            if removed:
+                print(f"Removed {removed} snapshot(s) older than {args.retention_days:g} day(s)", flush=True)
             if args.once:
                 break
             time.sleep(args.interval)

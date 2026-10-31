@@ -125,6 +125,14 @@ python scripts/poll_ring.py \
 
 Each poll downloads one snapshot, runs the existing detector, and saves an annotated image under `outputs/ring/`. Filenames contain the configured parking spot names and the UTC poll timestamp, for example `right-curb-partial-view__2026-10-27T17-04-05.123456Z.jpg`. If one camera has several spots, all of their names are joined with `--` because they share one annotated camera image. The rate limit is a ceiling, not a target; one request per minute per camera is intentionally conservative. Press `Ctrl+C` to stop cleanly.
 
+The poller automatically deletes annotated `.jpg` snapshots older than one hour;
+`tokens.json` and other non-image files are never removed. Change the retention
+period with `PARKWATCH_RETENTION_DAYS` or `--retention-days`, for example:
+
+```bash
+export PARKWATCH_RETENTION_DAYS="0.0416667"
+```
+
 ## Discord notifications
 
 Create a Discord incoming webhook in the channel where you want alerts, then set

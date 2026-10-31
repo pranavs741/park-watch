@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
+import os
+import time
 
-from parkwatch.output import filename_slug, timestamped_image_path
+from parkwatch.output import filename_slug, remove_old_images, timestamped_image_path
 
 
 def test_filename_slug_is_safe_and_readable():
@@ -13,3 +15,20 @@ def test_timestamped_image_path_contains_all_spots_and_utc_time(tmp_path):
     path = timestamped_image_path(tmp_path, ["Left Spot", "Right Spot"], timestamp)
 
     assert path == tmp_path / "left-spot--right-spot__2026-10-27T17-04-05.123456Z.jpg"
+
+
+def test_remove_old_images_does_not_remove_tokens(tmp_path):
+    old_image = tmp_path / "old.jpg"
+    recent_image = tmp_path / "recent.jpg"
+    tokens = tmp_path / "tokens.json"
+    for path in (old_image, recent_image, tokens):
+        path.write_text("data")
+
+    old_image.touch()
+    old_image_age = 3 * 24 * 60 * 60
+    os.utime(old_image, (time.time() - old_image_age, time.time() - old_image_age))
+
+    assert remove_old_images(tmp_path, retention_days=2) == 1
+    assert not old_image.exists()
+    assert recent_image.exists()
+    assert tokens.exists()

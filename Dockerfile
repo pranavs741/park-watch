@@ -13,8 +13,9 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY requirements.txt .
-# Use the official ARM64 CPU wheels. The default PyPI ARM wheel currently
-# advertises CUDA libraries, which are unnecessary for this CPU-only service.
+# Use the official CPU-only wheels. This index selects the correct wheel for
+# the build architecture (including Google's x86-based E2 machines), and
+# avoids downloading unnecessary CUDA libraries.
 RUN sed '/^ultralytics>=/d' requirements.txt > /tmp/requirements-base.txt \
     && pip install --no-cache-dir -r /tmp/requirements-base.txt \
     && pip install --no-cache-dir --no-deps \
