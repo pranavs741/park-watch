@@ -106,7 +106,7 @@ python scripts/poll_ring.py \
 
 Repeat `--device-id` for multiple cameras. Use `--once` for one test cycle. Use `--download-only` to download clean images for ROI calibration without running YOLO.
 
-Each poll saves an annotated JPEG under `outputs/ring/`. Images older than one hour are removed by default. Change this with `--retention-days` or `PARKWATCH_RETENTION_DAYS`; token and non-image files are not removed.
+Each poll saves an annotated JPEG under `outputs/ring/`, named with the camera and Pacific local time, such as `front-garage_2026-11-01_09-45-12.jpg`. Images older than one hour are removed by default. Change this with `--retention-days` or `PARKWATCH_RETENTION_DAYS`; token and non-image files are not removed.
 
 ## Discord notifications
 

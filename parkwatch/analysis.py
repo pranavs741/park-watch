@@ -22,7 +22,7 @@ def analyze_snapshot(
 ) -> tuple[Path, list[tuple[ParkingSpotConfig, OccupancyResult]]]:
     """Download, analyze, annotate, and return results for one camera snapshot."""
     spots = config.spots_for_device(device_id)
-    image_path = timestamped_image_path(output_dir, [spot.name for spot in spots])
+    image_path = timestamped_image_path(output_dir, config.camera_name(device_id))
     client.download_snapshot(device_id, image_path)
     image = cv2.imread(str(image_path))
     if image is None:

@@ -93,7 +93,7 @@ def make_handler(config: VisionConfig, processor: RingWebhookProcessor, oauth: R
                 event = processor.parse(body, self.headers.get("X-Signature", ""))
                 if event is not None and event.event_type in {"motion_detected", "motion.vehicle", "motion.human"}:
                     spots = config.spots_for_device(event.device_id)
-                    image_path = timestamped_image_path(output_dir, [spot.name for spot in spots])
+                    image_path = timestamped_image_path(output_dir, config.camera_name(event.device_id))
                     client.download_snapshot(event.device_id, image_path, event.component_ids[0] if event.component_ids else None)
                     image = cv2.imread(str(image_path))
                     if image is None:

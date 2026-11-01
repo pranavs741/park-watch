@@ -4,6 +4,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 import re
 import time
+from zoneinfo import ZoneInfo
+
+
+PACIFIC_TIME = ZoneInfo("America/Los_Angeles")
 
 
 def filename_slug(value: str) -> str:
@@ -14,17 +18,17 @@ def filename_slug(value: str) -> str:
 
 def timestamped_image_path(
     output_dir: str | Path,
-    labels: list[str] | tuple[str, ...],
+    camera_name: str,
     timestamp: datetime | None = None,
 ) -> Path:
-    """Build ``spot-name__UTC-timestamp.jpg`` for one annotated camera image."""
+    """Build ``camera-name_YYYY-MM-DD_HH-MM-SS.jpg`` in Pacific time."""
     captured_at = timestamp or datetime.now(timezone.utc)
     if captured_at.tzinfo is None:
         captured_at = captured_at.replace(tzinfo=timezone.utc)
-    captured_at = captured_at.astimezone(timezone.utc)
-    label = "--".join(filename_slug(item) for item in labels) or "parking-spot"
-    utc_timestamp = captured_at.strftime("%Y-%m-%dT%H-%M-%S.%fZ")
-    return Path(output_dir) / f"{label}__{utc_timestamp}.jpg"
+    captured_at = captured_at.astimezone(PACIFIC_TIME)
+    label = filename_slug(camera_name)
+    local_timestamp = captured_at.strftime("%Y-%m-%d_%H-%M-%S")
+    return Path(output_dir) / f"{label}_{local_timestamp}.jpg"
 
 
 def remove_old_images(output_dir: str | Path, retention_days: float) -> int:

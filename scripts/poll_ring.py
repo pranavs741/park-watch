@@ -97,14 +97,14 @@ def main() -> int:
     if not args.device_id:
         parser.error("provide --device-id, or use --list-devices first")
 
+    config = VisionConfig.from_file(args.config)
     if args.download_only:
         for device_id in args.device_id:
-            image_path = timestamped_image_path(args.output_dir, ["calibration", device_id[-8:]])
+            image_path = timestamped_image_path(args.output_dir, config.camera_name(device_id))
             client.download_snapshot(device_id, image_path)
             print(f"{device_id}: downloaded {image_path}", flush=True)
         return 0
 
-    config = VisionConfig.from_file(args.config)
     config.validate()
     for device_id in args.device_id:
         config.spots_for_device(device_id)
