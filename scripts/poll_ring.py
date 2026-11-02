@@ -82,14 +82,25 @@ def main() -> int:
         parser.error("--retention-days cannot be negative")
 
     token = os.getenv("RING_ACCESS_TOKEN")
+    token_store = None
+    oauth = None
     if not token and os.path.exists(args.token_file):
         if not os.getenv("RING_CLIENT_ID") or not os.getenv("RING_CLIENT_SECRET"):
             parser.error("RING_CLIENT_ID and RING_CLIENT_SECRET are required to refresh the saved Ring token")
         oauth = RingOAuthClient(os.getenv("RING_CLIENT_ID", ""), os.getenv("RING_CLIENT_SECRET", ""))
-        token = RingTokenStore(args.token_file).access_token(oauth)
+        token_store = RingTokenStore(args.token_file)
+        token = token_store.access_token(oauth)
     if not token:
         parser.error("RING_ACCESS_TOKEN is missing and no usable token file was found; complete OAuth account linking first")
     client = RingApiClient(token, os.getenv("RING_API_URL", "https://api.amazonvision.com"))
+
+    def refresh_token_if_needed() -> None:
+        """Refresh the saved token while this long-running poller stays alive."""
+        if token_store is not None and oauth is not None:
+            refreshed_token = token_store.access_token(oauth)
+            if refreshed_token and refreshed_token != client.access_token:
+                client.access_token = refreshed_token
+                print("Ring access token refreshed", flush=True)
 
     if args.list_devices:
         print(client.list_devices())
@@ -119,6 +130,7 @@ def main() -> int:
     print(f"Polling {len(args.device_id)} Ring device(s) every {args.interval:g} seconds", flush=True)
     try:
         while True:
+            refresh_token_if_needed()
             for device_id in args.device_id:
                 try:
                     image_path, analyses = run_analysis(client, detector, config, device_id, args.output_dir)
