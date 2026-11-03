@@ -112,7 +112,7 @@ Each poll saves an annotated JPEG under `outputs/ring/`, named with the camera a
 
 Set `DISCORD_WEBHOOK_URL` and use polling mode. Notifications are sent only when the spot was previously `OCCUPIED`, becomes `EMPTY` for the configured number of consecutive readings (two by default), and is outside its cooldown (15 minutes by default).
 
-Snapshots narrower than 1280 pixels are analyzed and saved but do not update notification state by default. Change this with `--min-snapshot-width 0` or another width. The notification tracker is in memory, so restarting the process resets its transition history.
+Snapshots narrower than 1280 pixels are analyzed and saved but do not update notification state by default. Change this with `--min-snapshot-width 0` or another width. Notification state is persisted in `outputs/ring/notification_state.json`, so restarting the process preserves each spot's last status, confirmation streak, and notification cooldown. Override the location with `PARKWATCH_NOTIFICATION_STATE_FILE`.
 
 ## Ring webhook receiver
 
@@ -135,6 +135,8 @@ The Docker image runs the polling worker. Create an untracked `app-credentials.e
 ```env
 PARKWATCH_DEVICE_IDS="FRONT_DOOR_DEVICE_ID FRONT_GARAGE_DEVICE_ID"
 PARKWATCH_INTERVAL="60"
+PARKWATCH_MIN_SNAPSHOT_WIDTH="1280"
+PARKWATCH_NOTIFICATION_STATE_FILE="outputs/ring/notification_state.json"
 RING_ACCESS_TOKEN="..."
 RING_CLIENT_ID="..."
 RING_CLIENT_SECRET="..."

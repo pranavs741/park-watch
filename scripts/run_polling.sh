@@ -11,6 +11,8 @@ done
 exec python scripts/poll_ring.py \
     --config config/vision.json \
     --interval "${PARKWATCH_INTERVAL:-60}" \
+    --min-snapshot-width "${PARKWATCH_MIN_SNAPSHOT_WIDTH:-1280}" \
     --empty-confirmations "${PARKWATCH_EMPTY_CONFIRMATIONS:-2}" \
     --notification-cooldown "${PARKWATCH_NOTIFICATION_COOLDOWN:-900}" \
+    --notification-state-file "${PARKWATCH_NOTIFICATION_STATE_FILE:-outputs/ring/notification_state.json}" \
     "$@"

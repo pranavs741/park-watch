@@ -49,6 +49,12 @@ def main() -> int:
         help="Delete annotated JPG snapshots older than this many days (default: 1 hour)",
     )
     parser.add_argument("--token-file", type=Path, default=Path("outputs/ring/tokens.json"))
+    parser.add_argument(
+        "--notification-state-file",
+        type=Path,
+        default=Path(os.getenv("PARKWATCH_NOTIFICATION_STATE_FILE", "outputs/ring/notification_state.json")),
+        help="JSON file used to persist notification state across restarts",
+    )
     parser.add_argument("--list-devices", action="store_true", help="List accessible Ring devices and exit")
     parser.add_argument("--once", action="store_true", help="Poll each camera once, then exit")
     parser.add_argument(
@@ -126,7 +132,7 @@ def main() -> int:
         config.min_candidate_confidence,
     )
     notifier = DiscordWebhookNotifier(args.discord_webhook_url) if args.discord_webhook_url else None
-    tracker = SpotStateTracker(args.empty_confirmations, args.notification_cooldown)
+    tracker = SpotStateTracker(args.empty_confirmations, args.notification_cooldown, args.notification_state_file)
     print(f"Polling {len(args.device_id)} Ring device(s) every {args.interval:g} seconds", flush=True)
     try:
         while True:
