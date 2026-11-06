@@ -1,0 +1,5 @@
+# Copy this file to terraform.tfvars and fill in the VM details.
+project_id    = "replace-with-project_id"
+region        = "us-west2"
+zone          = "us-west2-a"
+instance_name = "replace-with-vm-name"

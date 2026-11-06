@@ -156,6 +156,41 @@ docker compose logs -f parkwatch
 
 The compose file mounts `config/vision.json` read-only and persists Ring outputs and the Ultralytics cache under `outputs/`. Stop the service with `docker compose down`.
 
+## Terraform: VM start/stop schedule
+
+The `terraform/` directory manages the existing Google Compute Engine resource
+policy and attaches it to the Park Watch VM. The policy starts the VM at 7:30 AM
+and stops it at 5:00 PM in `America/Los_Angeles`.
+
+Copy `terraform/terraform.tfvars.example` to `terraform/terraform.tfvars`, set
+the VM's `zone` and `instance_name`, then initialize Terraform:
+
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+terraform init
+```
+
+Because the policy and attachment were created manually, import them before
+planning:
+
+```bash
+terraform import google_compute_resource_policy.parkwatch_hours \
+  projects/{replace-with-project-id}/regions/us-west2/resourcePolicies/parkwatch-hours
+
+terraform import google_compute_resource_policy_attachment.parkwatch_hours \
+  projects/{replace-with-project-id}/zones/VM_ZONE/instances/VM_NAME/parkwatch-hours
+
+terraform plan
+```
+
+If the policy exists but was not yet attached to the VM, skip the second import;
+Terraform will create the attachment during `terraform apply`.
+
+After the plan shows only the intended schedule and attachment, run
+`terraform apply`. Local state is fine for practice; use a protected remote
+backend if this configuration becomes important.
+
 Do not put secrets in the Dockerfile or image. Rotate any credential that has been exposed.
 
 ## Tests
