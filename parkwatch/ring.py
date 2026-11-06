@@ -262,7 +262,13 @@ class RingApiClient:
         self._request_json("/v1/accounts/me/app-integrations", "POST", {"account_identifier": account_identifier, "nonce": nonce})
         self._request_json("/v1/accounts/me/app-integrations", "PATCH", {"status": "completed"})
 
-    def download_snapshot(self, device_id: str, output: str | Path, component_id: str | None = None) -> Path:
+    def download_snapshot(
+        self,
+        device_id: str,
+        output: str | Path,
+        component_id: str | None = None,
+        resolution: tuple[int, int] | None = None,
+    ) -> Path:
         if not self.access_token:
             raise RuntimeError("Ring access token is not available; complete OAuth account linking first")
         end_timestamp = int(time.time() * 1000)
@@ -272,6 +278,11 @@ class RingApiClient:
             "end_timestamp": end_timestamp,
             "image_options": {"format": "jpeg"},
         }
+        if resolution is not None:
+            payload["image_options"]["resolution"] = {
+                "width": resolution[0],
+                "height": resolution[1],
+            }
         if component_id is not None:
             payload["components"] = [{"component_id": component_id}]
         request = Request(

@@ -62,6 +62,8 @@ Important settings include:
 - `model`: YOLO model path or model name.
 - `reference_image_size`: width and height used when ROI coordinates were measured.
 - `inference_image_size`: YOLO's internal image size; larger values can help with distant vehicles but require more processing.
+- `snapshot_width`: width used for saved/annotated images. Images are resized to this width while preserving aspect ratio; upscaling does not recover detail that was absent from the Ring source image.
+- `snapshot_resolution`: requested native Ring snapshot resolution; camera-specific values can override it.
 - `min_candidate_confidence`: lower confidence floor for retained candidate detections.
 - `min_vehicle_confidence`: confidence required to establish occupancy.
 - `min_roi_overlap`: overlap required to classify a spot as occupied.

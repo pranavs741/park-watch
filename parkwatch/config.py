@@ -24,6 +24,8 @@ class VisionConfig:
     parking_roi: list[list[float]] = field(default_factory=list)
     model: str = "yolo11n.pt"
     reference_image_size: tuple[int, int] = (1920, 1080)
+    snapshot_resolution: tuple[int, int] = (1920, 1080)
+    snapshot_width: int = 1280
     inference_image_size: int = 640
     min_candidate_confidence: float = 0.10
     min_vehicle_confidence: float = 0.60
@@ -34,6 +36,7 @@ class VisionConfig:
     cameras: dict[str, tuple[ParkingSpotConfig, ...]] = field(default_factory=dict)
     camera_names: dict[str, str] = field(default_factory=dict)
     camera_reference_image_sizes: dict[str, tuple[int, int]] = field(default_factory=dict)
+    camera_snapshot_resolutions: dict[str, tuple[int, int]] = field(default_factory=dict)
 
     @classmethod
     def from_file(cls, path: str | Path) -> "VisionConfig":
@@ -73,10 +76,16 @@ class VisionConfig:
             str(device_id): tuple(camera.get("reference_image_size", data.get("reference_image_size", cls.reference_image_size)))
             for device_id, camera in data.get("cameras", {}).items()
         }
+        camera_snapshot_resolutions = {
+            str(device_id): tuple(camera.get("snapshot_resolution", data.get("snapshot_resolution", cls.snapshot_resolution)))
+            for device_id, camera in data.get("cameras", {}).items()
+        }
         return cls(
             parking_roi=data.get("parking_roi", []),
             model=data.get("model", cls.model),
             reference_image_size=tuple(data.get("reference_image_size", cls.reference_image_size)),
+            snapshot_resolution=tuple(data.get("snapshot_resolution", cls.snapshot_resolution)),
+            snapshot_width=int(data.get("snapshot_width", cls.snapshot_width)),
             inference_image_size=int(data.get("inference_image_size", cls.inference_image_size)),
             min_candidate_confidence=float(data.get("min_candidate_confidence", cls.min_candidate_confidence)),
             min_vehicle_confidence=defaults["min_vehicle_confidence"],
@@ -87,6 +96,7 @@ class VisionConfig:
             cameras=cameras,
             camera_names=camera_names,
             camera_reference_image_sizes=camera_reference_image_sizes,
+            camera_snapshot_resolutions=camera_snapshot_resolutions,
         )
 
     def validate(self) -> None:
@@ -94,6 +104,10 @@ class VisionConfig:
             raise ValueError("reference_image_size must contain two positive values")
         if self.inference_image_size <= 0:
             raise ValueError("inference_image_size must be greater than zero")
+        if self.snapshot_width <= 0:
+            raise ValueError("snapshot_width must be greater than zero")
+        if len(self.snapshot_resolution) != 2 or any(value <= 0 for value in self.snapshot_resolution):
+            raise ValueError("snapshot_resolution must contain two positive values")
         if not 0 <= self.min_candidate_confidence <= 1:
             raise ValueError("min_candidate_confidence must be between 0 and 1")
         if not 0 <= self.min_vehicle_confidence <= 1:
@@ -129,6 +143,10 @@ class VisionConfig:
     def reference_image_size_for_device(self, device_id: str) -> tuple[int, int]:
         """Return the coordinate reference size for one camera."""
         return self.camera_reference_image_sizes.get(device_id, self.reference_image_size)
+
+    def snapshot_resolution_for_device(self, device_id: str) -> tuple[int, int]:
+        """Return the requested Ring snapshot resolution for one camera."""
+        return self.camera_snapshot_resolutions.get(device_id, self.snapshot_resolution)
 
     def _legacy_spot(self) -> ParkingSpotConfig:
         return ParkingSpotConfig(

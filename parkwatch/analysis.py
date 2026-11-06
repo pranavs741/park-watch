@@ -13,6 +13,15 @@ from .vision.detector import YoloVehicleDetector
 from .vision.occupancy import OccupancyResult, classify_occupancy
 
 
+def normalize_snapshot_width(image, width: int):
+    """Return an image with the requested width, preserving its aspect ratio."""
+    if image.shape[1] == width:
+        return image
+    target_height = round(image.shape[0] * width / image.shape[1])
+    interpolation = cv2.INTER_AREA if width < image.shape[1] else cv2.INTER_CUBIC
+    return cv2.resize(image, (width, target_height), interpolation=interpolation)
+
+
 def analyze_snapshot(
     client: RingApiClient,
     detector: YoloVehicleDetector,
@@ -23,10 +32,19 @@ def analyze_snapshot(
     """Download, analyze, annotate, and return results for one camera snapshot."""
     spots = config.spots_for_device(device_id)
     image_path = timestamped_image_path(output_dir, config.camera_name(device_id))
-    client.download_snapshot(device_id, image_path)
+    client.download_snapshot(device_id, image_path, resolution=config.snapshot_resolution_for_device(device_id))
     image = cv2.imread(str(image_path))
     if image is None:
         raise RuntimeError(f"Ring returned an unreadable image: {image_path}")
+
+    # Ring can return different native resolutions for different cameras or
+    # requests. Normalize the working/saved image width while preserving its
+    # aspect ratio. This makes output dimensions predictable; it does not add
+    # detail to a low-resolution source image.
+    if image.shape[1] != config.snapshot_width:
+        image = normalize_snapshot_width(image, config.snapshot_width)
+        if not cv2.imwrite(str(image_path), image):
+            raise RuntimeError(f"Could not write normalized image: {image_path}")
 
     image_height, image_width = image.shape[:2]
     reference_width, reference_height = config.reference_image_size_for_device(device_id)

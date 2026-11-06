@@ -118,7 +118,11 @@ def main() -> int:
     if args.download_only:
         for device_id in args.device_id:
             image_path = timestamped_image_path(args.output_dir, config.camera_name(device_id))
-            client.download_snapshot(device_id, image_path)
+            client.download_snapshot(
+                device_id,
+                image_path,
+                resolution=config.snapshot_resolution_for_device(device_id),
+            )
             print(f"{device_id}: downloaded {image_path}", flush=True)
         return 0
 

@@ -83,3 +83,30 @@ def test_single_camera_snapshot_omits_components(monkeypatch, tmp_path):
     assert payload["image_options"] == {"format": "jpeg"}
     assert "components" not in payload
     assert destination.read_bytes() == b"image"
+
+
+def test_snapshot_resolution_is_requested(monkeypatch, tmp_path):
+    captured = {}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return b"image"
+
+    class Opener:
+        def open(self, request, timeout):
+            captured["request"] = request
+            return Response()
+
+    monkeypatch.setattr(parkwatch.ring, "build_opener", lambda *handlers: Opener())
+    RingApiClient("token").download_snapshot(
+        "device", tmp_path / "snapshot.jpg", resolution=(1920, 1080)
+    )
+
+    payload = json.loads(captured["request"].data)
+    assert payload["image_options"]["resolution"] == {"width": 1920, "height": 1080}

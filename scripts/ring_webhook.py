@@ -13,6 +13,7 @@ import cv2
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from parkwatch.config import VisionConfig
+from parkwatch.analysis import normalize_snapshot_width
 from parkwatch.output import timestamped_image_path
 from parkwatch.ring import RingApiClient, RingOAuthClient, RingTokenStore, RingWebhookProcessor, verify_account_link_nonce
 from parkwatch.vision.annotate import draw_analyses
@@ -94,10 +95,18 @@ def make_handler(config: VisionConfig, processor: RingWebhookProcessor, oauth: R
                 if event is not None and event.event_type in {"motion_detected", "motion.vehicle", "motion.human"}:
                     spots = config.spots_for_device(event.device_id)
                     image_path = timestamped_image_path(output_dir, config.camera_name(event.device_id))
-                    client.download_snapshot(event.device_id, image_path, event.component_ids[0] if event.component_ids else None)
+                    client.download_snapshot(
+                        event.device_id,
+                        image_path,
+                        event.component_ids[0] if event.component_ids else None,
+                        config.snapshot_resolution_for_device(event.device_id),
+                    )
                     image = cv2.imread(str(image_path))
                     if image is None:
                         raise RuntimeError(f"Ring returned an unreadable image: {image_path}")
+                    image = normalize_snapshot_width(image, config.snapshot_width)
+                    if not cv2.imwrite(str(image_path), image):
+                        raise RuntimeError(f"Could not write normalized image: {image_path}")
                     detections = detector.detect(image)
                     analyses = []
                     for spot in spots:

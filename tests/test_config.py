@@ -49,6 +49,7 @@ def test_detector_settings_are_loaded(tmp_path):
     path.write_text(json.dumps({
         "parking_roi": [[0, 0], [10, 0], [10, 10]],
         "inference_image_size": 1280,
+        "snapshot_width": 1280,
         "min_candidate_confidence": 0.15,
     }))
 
@@ -56,4 +57,5 @@ def test_detector_settings_are_loaded(tmp_path):
     config.validate()
 
     assert config.inference_image_size == 1280
+    assert config.snapshot_width == 1280
     assert config.min_candidate_confidence == pytest.approx(0.15)
