@@ -36,3 +36,10 @@ variable "stop_schedule" {
   type        = string
   default     = "0 17 * * *"
 }
+
+variable "gcs_bucket_name" {
+  description = "Optional globally unique GCS bucket name for ParkWatch images."
+  type        = string
+  default     = null
+  nullable    = true
+}

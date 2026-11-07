@@ -143,6 +143,9 @@ RING_ACCESS_TOKEN="..."
 RING_CLIENT_ID="..."
 RING_CLIENT_SECRET="..."
 DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
+# Optional: upload each completed annotated image to Google Cloud Storage.
+PARKWATCH_GCS_BUCKET="your-globally-unique-bucket-name"
+PARKWATCH_GCS_PREFIX="parkwatch"
 ```
 
 Protect the file and start the service:
@@ -155,6 +158,18 @@ docker compose logs -f parkwatch
 ```
 
 The compose file mounts `config/vision.json` read-only and persists Ring outputs and the Ultralytics cache under `outputs/`. Stop the service with `docker compose down`.
+
+When `PARKWATCH_GCS_BUCKET` is set, each completed annotated JPEG is also uploaded
+to `gs://<bucket>/<prefix>/`. The VM must use Application Default Credentials with
+permission to create objects in the bucket. The Terraform configuration can create
+the bucket and grant that permission to the VM's attached service account:
+
+```hcl
+gcs_bucket_name = "your-globally-unique-bucket-name"
+```
+
+Then run `terraform apply`. The bucket keeps images for 30 days by default; local
+images continue to be written and cleaned up as before.
 
 ## Terraform: VM start/stop schedule
 

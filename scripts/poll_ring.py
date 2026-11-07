@@ -16,6 +16,7 @@ from parkwatch.config import VisionConfig
 from parkwatch.notifications import DiscordWebhookNotifier, SpotStateTracker
 from parkwatch.output import remove_old_images, timestamped_image_path
 from parkwatch.ring import RingApiClient, RingOAuthClient, RingTokenStore
+from parkwatch.storage import GcsImageUploader
 from parkwatch.vision.detector import YoloVehicleDetector
 
 
@@ -42,6 +43,16 @@ def main() -> int:
         help="Do not update notification state from snapshots narrower than this (default: 1280)",
     )
     parser.add_argument("--output-dir", type=Path, default=Path("outputs/ring"))
+    parser.add_argument(
+        "--gcs-bucket",
+        default=os.getenv("PARKWATCH_GCS_BUCKET"),
+        help="Upload completed images to this GCS bucket (or set PARKWATCH_GCS_BUCKET)",
+    )
+    parser.add_argument(
+        "--gcs-prefix",
+        default=os.getenv("PARKWATCH_GCS_PREFIX", "parkwatch"),
+        help="Object prefix for GCS uploads (or set PARKWATCH_GCS_PREFIX)",
+    )
     parser.add_argument(
         "--retention-days",
         type=float,
@@ -136,6 +147,7 @@ def main() -> int:
         config.min_candidate_confidence,
     )
     notifier = DiscordWebhookNotifier(args.discord_webhook_url) if args.discord_webhook_url else None
+    uploader = GcsImageUploader(args.gcs_bucket, args.gcs_prefix)
     tracker = SpotStateTracker(args.empty_confirmations, args.notification_cooldown, args.notification_state_file)
     print(f"Polling {len(args.device_id)} Ring device(s) every {args.interval:g} seconds", flush=True)
     try:
@@ -144,6 +156,11 @@ def main() -> int:
             for device_id in args.device_id:
                 try:
                     image_path, analyses = run_analysis(client, detector, config, device_id, args.output_dir)
+                    if uploader.enabled:
+                        try:
+                            print(f"{device_id}: uploaded {uploader.upload(image_path)}", flush=True)
+                        except Exception as exc:
+                            print(f"{device_id}: GCS upload failed: {exc}", file=sys.stderr, flush=True)
                     statuses = ", ".join(f"{spot.name}={result.status.value}" for spot, result in analyses)
                     print(f"{device_id}: {statuses} ({image_path})", flush=True)
                     if notifier:

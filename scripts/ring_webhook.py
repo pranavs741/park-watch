@@ -16,6 +16,7 @@ from parkwatch.config import VisionConfig
 from parkwatch.analysis import normalize_snapshot_width
 from parkwatch.output import timestamped_image_path
 from parkwatch.ring import RingApiClient, RingOAuthClient, RingTokenStore, RingWebhookProcessor, verify_account_link_nonce
+from parkwatch.storage import GcsImageUploader
 from parkwatch.vision.annotate import draw_analyses
 from parkwatch.vision.detector import YoloVehicleDetector
 from parkwatch.vision.occupancy import classify_occupancy
@@ -28,7 +29,7 @@ def required_env(name: str) -> str:
     return value
 
 
-def make_handler(config: VisionConfig, processor: RingWebhookProcessor, oauth: RingOAuthClient, client: RingApiClient, token_store: RingTokenStore, output_dir: Path):
+def make_handler(config: VisionConfig, processor: RingWebhookProcessor, oauth: RingOAuthClient, client: RingApiClient, token_store: RingTokenStore, output_dir: Path, uploader: GcsImageUploader):
     detector = YoloVehicleDetector(
         config.model,
         config.vehicle_classes,
@@ -122,6 +123,11 @@ def make_handler(config: VisionConfig, processor: RingWebhookProcessor, oauth: R
                     annotated = draw_analyses(image, analyses)
                     if not cv2.imwrite(str(image_path), annotated):
                         raise RuntimeError(f"Could not write annotated image: {image_path}")
+                    if uploader.enabled:
+                        try:
+                            print(f"{event.request_id}: uploaded {uploader.upload(image_path)}", flush=True)
+                        except Exception as exc:
+                            print(f"{event.request_id}: GCS upload failed: {exc}", flush=True)
                     statuses = ", ".join(f"{spot.name}={result.status.value}" for spot, result in analyses)
                     print(f"{event.request_id}: {statuses} ({image_path})", flush=True)
                 self.send_response(200)
@@ -168,6 +174,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Receive Ring webhooks and analyze snapshots")
     parser.add_argument("--config", type=Path, default=Path("config/vision.json"))
     parser.add_argument("--output-dir", type=Path, default=Path("outputs/ring"))
+    parser.add_argument("--gcs-bucket", default=os.getenv("PARKWATCH_GCS_BUCKET"))
+    parser.add_argument("--gcs-prefix", default=os.getenv("PARKWATCH_GCS_PREFIX", "parkwatch"))
     parser.add_argument("--token-file", type=Path, default=Path("outputs/ring/tokens.json"))
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8080)
@@ -180,7 +188,8 @@ def main() -> int:
     token_store = RingTokenStore(args.token_file)
     access_token = os.getenv("RING_ACCESS_TOKEN") or token_store.access_token(oauth)
     client = RingApiClient(access_token, os.getenv("RING_API_URL", "https://api.amazonvision.com"))
-    server = HTTPServer((args.host, args.port), make_handler(config, processor, oauth, client, token_store, args.output_dir))
+    uploader = GcsImageUploader(args.gcs_bucket, args.gcs_prefix)
+    server = HTTPServer((args.host, args.port), make_handler(config, processor, oauth, client, token_store, args.output_dir, uploader))
     print(f"Listening on http://{args.host}:{args.port}", flush=True)
     server.serve_forever()
     return 0

@@ -3,3 +3,7 @@ project_id    = "replace-with-project_id"
 region        = "us-west2"
 zone          = "us-west2-a"
 instance_name = "replace-with-vm-name"
+
+# Optional: create a bucket and grant the VM permission to upload images.
+# Bucket names are globally unique across Google Cloud.
+# gcs_bucket_name = "replace-with-globally-unique-bucket-name"
